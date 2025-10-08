@@ -3,6 +3,27 @@ from typing import Optional
 import os
 
 class Settings(BaseSettings):
+    # Auto-detect environment
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._auto_configure()
+    
+    def _auto_configure(self):
+        """Auto-configure based on environment detection"""
+        # Detect if running on cloud platforms
+        if os.getenv("RENDER") or os.getenv("RAILWAY") or os.getenv("HEROKU"):
+            # Cloud deployment - use SQLite
+            self.DATABASE_URL = "sqlite:///./content_agent.db"
+            self.REDIS_URL = "redis://localhost:6379"
+            self.ENVIRONMENT = "production"
+            self.DEBUG = False
+        else:
+            # Local development
+            self.DATABASE_URL = "sqlite:///./content_agent.db"
+            self.REDIS_URL = "redis://localhost:6379"
+            self.ENVIRONMENT = "development"
+            self.DEBUG = True
+    
     # Database settings
     DATABASE_URL: str = "sqlite:///./content_agent.db"
     
