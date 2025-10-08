@@ -98,6 +98,42 @@ async def test_endpoint():
         ]
     }
 
+# Demo content generation (no auth, no DB required)
+@app.post("/demo/generate")
+async def demo_generate_content(request: dict):
+    """Demo content generation without authentication"""
+    source_text = request.get("text", "Sample content about AI and machine learning.")
+    content_type = request.get("type", "linkedin_post")
+    
+    # Simple content generation (mock)
+    if content_type == "linkedin_post":
+        generated = {
+            "title": "AI Revolution in Business",
+            "content": f"Based on: {source_text[:100]}...\n\n🚀 Artificial Intelligence is transforming industries worldwide. From automation to decision-making, AI is reshaping how businesses operate.\n\nKey insights:\n• Increased efficiency\n• Better decision making\n• Enhanced customer experience\n\n#AI #Business #Innovation",
+            "hashtags": ["#AI", "#Business", "#Innovation", "#Technology"]
+        }
+    elif content_type == "twitter_thread":
+        generated = {
+            "thread": [
+                f"🧵 Based on: {source_text[:50]}...",
+                "1/ AI is revolutionizing industries across the globe 🌍",
+                "2/ From healthcare to finance, AI is improving efficiency and accuracy 📊",
+                "3/ The future belongs to those who embrace AI innovation 🚀"
+            ],
+            "hashtags": ["#AI", "#Innovation"]
+        }
+    else:
+        generated = {
+            "content": f"Generated content from: {source_text}",
+            "type": content_type
+        }
+    
+    return {
+        "status": "success",
+        "generated_content": generated,
+        "source_preview": source_text[:100] + "..." if len(source_text) > 100 else source_text
+    }
+
 # Authentication endpoints
 @app.post("/auth/login")
 async def login(username: str, password: str):
@@ -159,11 +195,16 @@ async def upload_content(
         content_source.status = "uploaded"
         print(f"Database error (continuing without DB): {e}")
     
-    # Queue processing job
-    if source_type in ["audio", "video"]:
-        task_queue.enqueue("process_audio", file_id, file_path)
-    else:
-        task_queue.enqueue("process_text", file_id, file_path)
+    # Queue processing job (if task_queue is available)
+    try:
+        if task_queue and source_type in ["audio", "video"]:
+            task_queue.enqueue("process_audio", file_id, file_path)
+        elif task_queue:
+            task_queue.enqueue("process_text", file_id, file_path)
+        else:
+            print("Task queue not available - skipping job queue")
+    except Exception as e:
+        print(f"Task queue error (continuing without queue): {e}")
     
     return ContentSourceResponse.from_orm(content_source)
 

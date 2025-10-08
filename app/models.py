@@ -1,16 +1,23 @@
 from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, JSON, ForeignKey, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime
+import os
+
+# Use String for UUID in SQLite, UUID for PostgreSQL
+if os.getenv("DATABASE_URL", "").startswith("sqlite"):
+    UUID_TYPE = String(36)  # SQLite
+else:
+    from sqlalchemy.dialects.postgresql import UUID
+    UUID_TYPE = UUID(as_uuid=True)  # PostgreSQL
 
 Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
@@ -24,7 +31,7 @@ class User(Base):
 class ContentSource(Base):
     __tablename__ = "content_sources"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
     title = Column(String(255), nullable=False)
     description = Column(Text)
     source_type = Column(String(50), nullable=False)  # text, audio, video, pdf
@@ -33,7 +40,7 @@ class ContentSource(Base):
     status = Column(String(50), default="uploaded")  # uploaded, processing, processed, failed
     transcript = Column(Text)  # For audio/video content
     content_metadata = Column(JSON)  # Additional metadata
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID_TYPE, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -45,8 +52,8 @@ class ContentSource(Base):
 class ContentChunk(Base):
     __tablename__ = "content_chunks"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    source_id = Column(UUID(as_uuid=True), ForeignKey("content_sources.id"), nullable=False)
+    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    source_id = Column(UUID_TYPE, ForeignKey("content_sources.id"), nullable=False)
     chunk_text = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)
     start_position = Column(Integer)  # Character position in original text
@@ -64,8 +71,8 @@ class ContentChunk(Base):
 class GeneratedContent(Base):
     __tablename__ = "generated_content"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    source_id = Column(UUID(as_uuid=True), ForeignKey("content_sources.id"), nullable=False)
+    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    source_id = Column(UUID_TYPE, ForeignKey("content_sources.id"), nullable=False)
     job_id = Column(String(100), unique=True)
     content_type = Column(String(50), nullable=False)  # linkedin, twitter, instagram, etc.
     content = Column(JSON, nullable=False)  # Generated content in structured format
@@ -74,7 +81,7 @@ class GeneratedContent(Base):
     generation_prompt = Column(Text)
     llm_model = Column(String(100))
     generation_time = Column(Float)  # Time taken to generate in seconds
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID_TYPE, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -85,9 +92,9 @@ class GeneratedContent(Base):
 class Review(Base):
     __tablename__ = "reviews"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    content_id = Column(UUID(as_uuid=True), ForeignKey("generated_content.id"), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    content_id = Column(UUID_TYPE, ForeignKey("generated_content.id"), nullable=False)
+    user_id = Column(UUID_TYPE, ForeignKey("users.id"), nullable=False)
     status = Column(String(50), nullable=False)  # approved, rejected, needs_revision
     feedback = Column(Text)
     modifications = Column(JSON)  # Specific modifications requested
@@ -100,13 +107,13 @@ class Review(Base):
 class ContentSchedule(Base):
     __tablename__ = "content_schedules"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    content_id = Column(UUID(as_uuid=True), ForeignKey("generated_content.id"), nullable=False)
+    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    content_id = Column(UUID_TYPE, ForeignKey("generated_content.id"), nullable=False)
     platform = Column(String(50), nullable=False)  # linkedin, twitter, instagram, etc.
     scheduled_time = Column(DateTime, nullable=False)
     status = Column(String(50), default="scheduled")  # scheduled, published, failed
     external_id = Column(String(100))  # ID from external platform
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID_TYPE, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -116,8 +123,8 @@ class ContentSchedule(Base):
 class ContentMetrics(Base):
     __tablename__ = "content_metrics"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    content_id = Column(UUID(as_uuid=True), ForeignKey("generated_content.id"), nullable=False)
+    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    content_id = Column(UUID_TYPE, ForeignKey("generated_content.id"), nullable=False)
     platform = Column(String(50), nullable=False)
     metric_type = Column(String(50), nullable=False)  # views, likes, shares, clicks
     value = Column(Integer)
