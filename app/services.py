@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional
 import asyncio
 import json
 import numpy as np
+from datetime import datetime
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
