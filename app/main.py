@@ -62,6 +62,17 @@ app.add_middleware(
 
 security = HTTPBearer()
 
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "message": "Content Repurposing Agent API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
@@ -70,6 +81,21 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0"
+    }
+
+# Simple test endpoint (no auth required)
+@app.get("/test")
+async def test_endpoint():
+    """Simple test endpoint"""
+    return {
+        "message": "Content Repurposing Agent is working!",
+        "status": "success",
+        "features": [
+            "Content upload",
+            "Content generation", 
+            "Multiple formats",
+            "Review system"
+        ]
     }
 
 # Authentication endpoints
@@ -100,12 +126,16 @@ async def upload_content(
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Unsupported file type")
     
+    # Create uploads directory if it doesn't exist
+    import os
+    os.makedirs("uploads", exist_ok=True)
+    
     # Save uploaded file
     file_id = str(uuid.uuid4())
-    file_path = f"/uploads/{file_id}_{file.filename}"
+    file_path = f"uploads/{file_id}_{file.filename}"
     
-    with open(f"uploads/{file_id}_{file.filename}", "wb") as buffer:
-        content = await file.read()
+    content = await file.read()
+    with open(file_path, "wb") as buffer:
         buffer.write(content)
     
     # Create content source record
@@ -117,7 +147,7 @@ async def upload_content(
         file_path=file_path,
         file_size=len(content),
         status="uploaded",
-        user_id=current_user.id
+        user_id=current_user.get("user_id", "demo_user")
     )
     
     db.add(content_source)
@@ -141,7 +171,7 @@ async def list_content_sources(
 ):
     """List all content sources for the current user"""
     sources = db.query(ContentSource).filter(
-        ContentSource.user_id == current_user.id
+        ContentSource.user_id == current_user.get("user_id", "demo_user")
     ).offset(skip).limit(limit).all()
     
     return [ContentSourceResponse.from_orm(source) for source in sources]
@@ -155,7 +185,7 @@ async def get_content_source(
     """Get specific content source details"""
     source = db.query(ContentSource).filter(
         ContentSource.id == source_id,
-        ContentSource.user_id == current_user.id
+        ContentSource.user_id == current_user.get("user_id", "demo_user")
     ).first()
     
     if not source:
@@ -175,7 +205,7 @@ async def generate_content(
     # Verify source exists and belongs to user
     source = db.query(ContentSource).filter(
         ContentSource.id == request.source_id,
-        ContentSource.user_id == current_user.id
+        ContentSource.user_id == current_user.get("user_id", "demo_user")
     ).first()
     
     if not source:
@@ -234,7 +264,7 @@ async def submit_review(
     
     review = Review(
         content_id=request.content_id,
-        user_id=current_user.id,
+        user_id=current_user.get("user_id", "demo_user"),
         status=request.status,
         feedback=request.feedback,
         modifications=request.modifications
@@ -298,7 +328,7 @@ async def schedule_content(
         platform=platform,
         scheduled_time=scheduled_time,
         status="scheduled",
-        user_id=current_user.id
+        user_id=current_user.get("user_id", "demo_user")
     )
     
     db.add(schedule)
@@ -320,15 +350,15 @@ async def get_analytics_overview(
     
     # Get content statistics
     total_sources = db.query(ContentSource).filter(
-        ContentSource.user_id == current_user.id
+        ContentSource.user_id == current_user.get("user_id", "demo_user")
     ).count()
     
     total_generated = db.query(GeneratedContent).join(ContentSource).filter(
-        ContentSource.user_id == current_user.id
+        ContentSource.user_id == current_user.get("user_id", "demo_user")
     ).count()
     
     approved_content = db.query(GeneratedContent).join(ContentSource).filter(
-        ContentSource.user_id == current_user.id,
+        ContentSource.user_id == current_user.get("user_id", "demo_user"),
         GeneratedContent.status == "approved"
     ).count()
     
