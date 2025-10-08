@@ -4,7 +4,7 @@ import os
 
 class Settings(BaseSettings):
     # Database settings
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/content_agent"
+    DATABASE_URL: str = "sqlite:///./content_agent.db"
     
     # Redis settings
     REDIS_URL: str = "redis://localhost:6379"
