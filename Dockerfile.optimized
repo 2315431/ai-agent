@@ -2,19 +2,21 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install minimal system dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy minimal requirements
-COPY requirements.minimal.txt .
+# Copy requirements
+COPY requirements.txt .
 
-# Install only essential dependencies
+# Install Python dependencies with optimizations
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.minimal.txt
+    pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy only necessary application code
 COPY app/ ./app/
 
 # Expose port
