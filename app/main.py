@@ -6,6 +6,8 @@ from typing import List, Optional, Dict, Any
 import asyncio
 import uuid
 import os
+os.makedirs("uploads", exist_ok=True)
+
 from datetime import datetime, timedelta
 import json
 
