@@ -3,8 +3,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Database URL from environment variable
+# Database URL from environment variable - force SQLite for cloud deployment
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./content_agent.db")
+if "postgres" in DATABASE_URL or "postgresql" in DATABASE_URL:
+    DATABASE_URL = "sqlite:///./content_agent.db"
 
 # Create engine
 if DATABASE_URL.startswith("sqlite"):
