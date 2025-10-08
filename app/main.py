@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any
 import asyncio
 import uuid
 import os
-os.makedirs("uploads", exist_ok=True)
+
 
 from datetime import datetime, timedelta
 import json
@@ -127,7 +127,6 @@ async def upload_content(
         raise HTTPException(status_code=400, detail="Unsupported file type")
     
     # Create uploads directory if it doesn't exist
-    import os
     os.makedirs("uploads", exist_ok=True)
     
     # Save uploaded file
