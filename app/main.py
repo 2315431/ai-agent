@@ -9,7 +9,7 @@ import os
 from datetime import datetime, timedelta
 import json
 
-from .database import get_db, engine, Base
+from .database import get_db, engine
 from .models import ContentSource, GeneratedContent, ContentChunk, User, Review
 from .schemas import (
     ContentSourceCreate, ContentSourceResponse, 

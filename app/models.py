@@ -32,7 +32,7 @@ class ContentSource(Base):
     file_size = Column(Integer)
     status = Column(String(50), default="uploaded")  # uploaded, processing, processed, failed
     transcript = Column(Text)  # For audio/video content
-    metadata = Column(JSON)  # Additional metadata
+    content_metadata = Column(JSON)  # Additional metadata
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -55,7 +55,7 @@ class ContentChunk(Base):
     end_time = Column(Float)
     token_count = Column(Integer)
     embedding = Column(JSON)  # Vector embedding
-    metadata = Column(JSON)
+    chunk_metadata = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
