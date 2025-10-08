@@ -1,0 +1,263 @@
+version: '3.8'
+
+services:
+  # Vector Database
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: content-agent-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for Job Queue
+  redis:
+    image: redis:7.2-alpine
+    container_name: content-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: content-agent-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=content_agent
+      - POSTGRES_USER=content_agent
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U content_agent"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: content-agent-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://content_agent:${POSTGRES_PASSWORD}@postgres:5432/content_agent
+      - REDIS_URL=redis://redis:6379
+      - QDRANT_URL=http://qdrant:6333
+      - LLM_SERVICE_URL=http://llm-service:8001
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=production
+    volumes:
+      - ./app:/app
+      - ./models:/models
+      - ./uploads:/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # LLM Inference Service
+  llm-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.llm
+    container_name: content-agent-llm
+    ports:
+      - "8001:8001"
+    environment:
+      - MODEL_NAME=${MODEL_NAME:-microsoft/DialoGPT-medium}
+      - MODEL_PATH=/models
+      - GPU_MEMORY_FRACTION=0.8
+      - MAX_BATCH_SIZE=4
+      - MAX_SEQUENCE_LENGTH=2048
+    volumes:
+      - ./models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ASR Worker
+  asr-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.asr
+    container_name: content-agent-asr
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - QDRANT_URL=http://qdrant:6333
+      - API_URL=http://api:8000
+      - WHISPER_MODEL=base
+    volumes:
+      - ./uploads:/uploads
+      - ./models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      - redis
+      - qdrant
+      - api
+    restart: unless-stopped
+
+  # Embedding Worker
+  embedding-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.embedding
+    container_name: content-agent-embedding
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - QDRANT_URL=http://qdrant:6333
+      - API_URL=http://api:8000
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+    volumes:
+      - ./models:/models
+    depends_on:
+      - redis
+      - qdrant
+      - api
+    restart: unless-stopped
+
+  # Content Generation Worker
+  generation-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.generation
+    container_name: content-agent-generation
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - QDRANT_URL=http://qdrant:6333
+      - API_URL=http://api:8000
+      - LLM_SERVICE_URL=http://llm-service:8001
+    volumes:
+      - ./models:/models
+    depends_on:
+      - redis
+      - qdrant
+      - api
+      - llm-service
+    restart: unless-stopped
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: content-agent-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=http://localhost:3000
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: content-agent-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: content-agent-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: content-agent-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - api
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
+  redis_data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: content-agent-network
