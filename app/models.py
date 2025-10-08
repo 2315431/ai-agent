@@ -72,7 +72,7 @@ class GeneratedContent(Base):
     status = Column(String(50), default="generated")  # generated, approved, rejected, published
     source_chunks = Column(JSON)  # References to source chunks used
     generation_prompt = Column(Text)
-    model_used = Column(String(100))
+    llm_model = Column(String(100))
     generation_time = Column(Float)  # Time taken to generate in seconds
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

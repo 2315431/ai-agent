@@ -47,7 +47,7 @@ class GeneratedContentCreate(BaseModel):
     content: Dict[str, Any]
     source_chunks: List[str]
     generation_prompt: str
-    model_used: str
+    llm_model: str
 
 class GeneratedContentResponse(BaseModel):
     id: str
@@ -58,7 +58,7 @@ class GeneratedContentResponse(BaseModel):
     status: str
     source_chunks: Optional[List[str]]
     generation_prompt: Optional[str]
-    model_used: Optional[str]
+    llm_model: Optional[str]
     generation_time: Optional[float]
     created_at: datetime
     updated_at: datetime
