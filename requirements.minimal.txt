@@ -5,6 +5,7 @@ psycopg2-binary==2.9.9
 redis==5.0.1
 numpy==1.24.3
 pandas==2.0.3
+sentence-transformers==2.2.2
 requests==2.31.0
 aiohttp==3.9.0
 python-multipart==0.0.6
