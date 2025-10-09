@@ -382,6 +382,14 @@ async def list_content_sources(
         user_id = current_user.get("user_id", "demo_user")
         print(f"Looking for content sources for user: {user_id}")
         
+        # Also check what users exist in the database
+        all_users = db.query(ContentSource.user_id).distinct().all()
+        print(f"All users in database: {[user[0] for user in all_users]}")
+        
+        # Get all sources (for debugging)
+        all_sources = db.query(ContentSource).all()
+        print(f"Total sources in database: {len(all_sources)}")
+        
         sources = db.query(ContentSource).filter(
             ContentSource.user_id == user_id
         ).offset(skip).limit(limit).all()
@@ -409,6 +417,25 @@ async def list_content_sources(
         # Return empty list if database is not available
         print(f"Database error in list_content_sources: {e}")
         return []
+
+# Temporary debug endpoint to see all content sources
+@app.get("/debug/all-sources")
+async def debug_all_sources(db: Session = Depends(get_db)):
+    """Debug endpoint to see all content sources"""
+    try:
+        all_sources = db.query(ContentSource).all()
+        return [
+            {
+                "id": source.id,
+                "title": source.title,
+                "user_id": source.user_id,
+                "created_at": source.created_at,
+                "status": source.status
+            }
+            for source in all_sources
+        ]
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/content/sources/{source_id}", response_model=ContentSourceResponse)
 async def get_content_source(
