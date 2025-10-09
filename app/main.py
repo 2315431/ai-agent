@@ -122,8 +122,22 @@ async def ai_status():
         
         if has_api_key:
             try:
-                # Test OpenAI connection with modern API
-                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                # Test OpenAI connection with modern API - avoid proxy issues
+                import os
+                # Remove any proxy-related environment variables that might interfere
+                proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']
+                original_proxy_values = {}
+                for var in proxy_vars:
+                    if var in os.environ:
+                        original_proxy_values[var] = os.environ[var]
+                        del os.environ[var]
+                
+                try:
+                    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                finally:
+                    # Restore proxy environment variables
+                    for var, value in original_proxy_values.items():
+                        os.environ[var] = value
                 
                 return {
                     "status": "ai_ready",
@@ -259,8 +273,22 @@ async def ai_generate_content(request: dict):
             if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "demo-key":
                 raise ImportError("No OpenAI API key provided")
             
-            # Initialize OpenAI client with modern API
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            # Initialize OpenAI client with modern API - explicitly avoid proxies
+            import os
+            # Remove any proxy-related environment variables that might interfere
+            proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']
+            original_proxy_values = {}
+            for var in proxy_vars:
+                if var in os.environ:
+                    original_proxy_values[var] = os.environ[var]
+                    del os.environ[var]
+            
+            try:
+                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            finally:
+                # Restore proxy environment variables
+                for var, value in original_proxy_values.items():
+                    os.environ[var] = value
             
             # Create prompts based on content type
             if content_type == "linkedin_post":
