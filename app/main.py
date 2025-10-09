@@ -122,30 +122,43 @@ async def ai_status():
         
         if has_api_key:
             try:
-                # Test OpenAI connection with modern API - avoid proxy issues
-                import os
-                # Remove any proxy-related environment variables that might interfere
-                proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']
-                original_proxy_values = {}
-                for var in proxy_vars:
-                    if var in os.environ:
-                        original_proxy_values[var] = os.environ[var]
-                        del os.environ[var]
+                # Test OpenAI API with direct HTTP request
+                import requests
                 
-                try:
-                    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-                finally:
-                    # Restore proxy environment variables
-                    for var, value in original_proxy_values.items():
-                        os.environ[var] = value
-                
-                return {
-                    "status": "ai_ready",
-                    "message": "AI is properly configured and ready (modern API)",
-                    "has_api_key": True,
-                    "model": settings.LLM_MODEL,
-                    "method": "modern_api"
+                headers = {
+                    "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                    "Content-Type": "application/json"
                 }
+                
+                # Test with a simple request
+                test_payload = {
+                    "model": "gpt-3.5-turbo",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "max_tokens": 5
+                }
+                
+                response = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers=headers,
+                    json=test_payload,
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    return {
+                        "status": "ai_ready",
+                        "message": "AI is properly configured and ready (HTTP API)",
+                        "has_api_key": True,
+                        "model": settings.LLM_MODEL,
+                        "method": "http_api"
+                    }
+                else:
+                    return {
+                        "status": "ai_error",
+                        "message": f"OpenAI API test failed: {response.status_code}",
+                        "has_api_key": True,
+                        "error": response.text
+                    }
             except Exception as e:
                 return {
                     "status": "ai_error", 
@@ -264,91 +277,94 @@ async def ai_generate_content(request: dict):
         return {"error": "Text is required"}
     
     try:
-        # Import OpenAI (if available)
-        try:
-            import openai
-            from .config import settings
-            
-            # Check if we have a valid API key
-            if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "demo-key":
-                raise ImportError("No OpenAI API key provided")
-            
-            # Initialize OpenAI client with modern API - explicitly avoid proxies
-            import os
-            # Remove any proxy-related environment variables that might interfere
-            proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']
-            original_proxy_values = {}
-            for var in proxy_vars:
-                if var in os.environ:
-                    original_proxy_values[var] = os.environ[var]
-                    del os.environ[var]
-            
+        # Try to use OpenAI API
+        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "demo-key":
             try:
-                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-            finally:
-                # Restore proxy environment variables
-                for var, value in original_proxy_values.items():
-                    os.environ[var] = value
-            
-            # Create prompts based on content type
-            if content_type == "linkedin_post":
-                system_prompt = f"""You are a professional content creator specializing in LinkedIn posts. 
-                Create engaging LinkedIn content based on the source material.
-                Target audience: {target_audience}
-                Tone: {tone}
+                import openai
+                import requests
                 
-                Format your response as JSON with:
-                - title: Catchy headline
-                - content: Full LinkedIn post (2-3 paragraphs)
-                - hashtags: Array of relevant hashtags (5-8 hashtags)
-                """
-                user_prompt = f"Create a LinkedIn post from this content: {source_text}"
-                
-            elif content_type == "twitter_thread":
-                system_prompt = f"""You are a Twitter content creator. Create a Twitter thread (3-5 tweets) based on the source material.
-                Target audience: {target_audience}
-                Tone: {tone}
-                
-                Format your response as JSON with:
-                - thread: Array of tweets (numbered 1/, 2/, etc.)
-                - hashtags: Array of relevant hashtags
-                """
-                user_prompt = f"Create a Twitter thread from this content: {source_text}"
-                
-            else:
-                system_prompt = f"""Create {content_type} content based on the source material.
-                Target audience: {target_audience}
-                Tone: {tone}
-                """
-                user_prompt = f"Create {content_type} content from: {source_text}"
-            
-            # Make API call to OpenAI using modern API
-            response = client.chat.completions.create(
-                model=settings.LLM_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=settings.LLM_TEMPERATURE,
-                max_tokens=settings.LLM_MAX_TOKENS
-            )
-            ai_content = response.choices[0].message.content
-            
-            # Try to parse JSON response
-            try:
-                import json
-                generated = json.loads(ai_content)
-                generated["ai_powered"] = True
-            except:
-                # If not JSON, wrap in structure
-                generated = {
-                    "content": ai_content,
-                    "type": content_type,
-                    "ai_powered": True
+                # Use direct HTTP requests to avoid client initialization issues
+                headers = {
+                    "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                    "Content-Type": "application/json"
                 }
                 
-        except ImportError:
-            # Fallback if OpenAI not available
+                # Create prompts based on content type
+                if content_type == "linkedin_post":
+                    system_prompt = f"""You are a professional content creator specializing in LinkedIn posts. 
+                    Create engaging LinkedIn content based on the source material.
+                    Target audience: {target_audience}
+                    Tone: {tone}
+                    
+                    Return a JSON response with:
+                    - title: Catchy headline
+                    - content: Full LinkedIn post (2-3 paragraphs)
+                    - hashtags: Array of relevant hashtags (5-8 hashtags)
+                    """
+                    user_prompt = f"Create a LinkedIn post from this content: {source_text}"
+                    
+                elif content_type == "twitter_thread":
+                    system_prompt = f"""You are a Twitter content creator. Create a Twitter thread (3-5 tweets) based on the source material.
+                    Target audience: {target_audience}
+                    Tone: {tone}
+                    
+                    Return a JSON response with:
+                    - thread: Array of tweets (numbered 1/, 2/, etc.)
+                    - hashtags: Array of relevant hashtags
+                    """
+                    user_prompt = f"Create a Twitter thread from this content: {source_text}"
+                    
+                else:
+                    system_prompt = f"""Create {content_type} content based on the source material.
+                    Target audience: {target_audience}
+                    Tone: {tone}
+                    """
+                    user_prompt = f"Create {content_type} content from: {source_text}"
+                
+                # Make direct HTTP request to OpenAI API
+                payload = {
+                    "model": settings.LLM_MODEL,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    "temperature": settings.LLM_TEMPERATURE,
+                    "max_tokens": settings.LLM_MAX_TOKENS
+                }
+                
+                response = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    ai_response = response.json()
+                    ai_content = ai_response["choices"][0]["message"]["content"]
+                    
+                    # Try to parse JSON response
+                    try:
+                        import json
+                        generated = json.loads(ai_content)
+                        generated["ai_powered"] = True
+                    except:
+                        # If not JSON, wrap in structure
+                        generated = {
+                            "content": ai_content,
+                            "type": content_type,
+                            "ai_powered": True
+                        }
+                else:
+                    raise Exception(f"OpenAI API error: {response.status_code} - {response.text}")
+                    
+            except Exception as e:
+                # If OpenAI fails, use enhanced template
+                print(f"OpenAI API failed: {e}")
+                generated = create_enhanced_template(source_text, content_type, target_audience, tone)
+                generated["ai_fallback"] = f"OpenAI failed: {str(e)}"
+        else:
+            # No API key, use enhanced template
             generated = create_enhanced_template(source_text, content_type, target_audience, tone)
             
     except Exception as e:
