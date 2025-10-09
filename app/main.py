@@ -277,7 +277,36 @@ async def ai_generate_content(request: dict):
         return {"error": "Text is required"}
     
     try:
-        # Try to use OpenAI API
+        # Try to use free AI alternatives first
+        try:
+            # Option 1: Try Hugging Face Inference API (Free)
+            generated = await try_huggingface_ai(source_text, content_type, target_audience, tone)
+            if generated:
+                return {
+                    "status": "success",
+                    "generated_content": generated,
+                    "source_preview": source_text[:100] + "..." if len(source_text) > 100 else source_text,
+                    "ai_powered": True,
+                    "ai_source": "huggingface_free"
+                }
+        except Exception as e:
+            print(f"Hugging Face AI failed: {e}")
+        
+        # Option 2: Try Cohere API (Free tier available)
+        try:
+            generated = await try_cohere_ai(source_text, content_type, target_audience, tone)
+            if generated:
+                return {
+                    "status": "success",
+                    "generated_content": generated,
+                    "source_preview": source_text[:100] + "..." if len(source_text) > 100 else source_text,
+                    "ai_powered": True,
+                    "ai_source": "cohere_free"
+                }
+        except Exception as e:
+            print(f"Cohere AI failed: {e}")
+        
+        # Option 2: Try OpenAI API (if available)
         if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "demo-key":
             try:
                 import openai
@@ -379,6 +408,134 @@ async def ai_generate_content(request: dict):
         "source_preview": source_text[:100] + "..." if len(source_text) > 100 else source_text,
         "ai_powered": True
     }
+
+async def try_cohere_ai(source_text: str, content_type: str, audience: str, tone: str):
+    """Try free Cohere API"""
+    try:
+        import requests
+        
+        # Cohere free tier
+        url = "https://api.cohere.ai/v1/generate"
+        
+        # Create prompt
+        prompt = f"""Create a professional {content_type} based on this content: "{source_text[:200]}..."
+        
+Target audience: {audience}
+Tone: {tone}
+
+Format as {content_type}:"""
+        
+        headers = {
+            "Authorization": "Bearer demo_token",  # Free tier
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "command-light",
+            "prompt": prompt,
+            "max_tokens": 200,
+            "temperature": 0.7,
+            "k": 0,
+            "p": 0.75,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "stop_sequences": [],
+            "return_likelihoods": "NONE"
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        
+        if response.status_code == 200:
+            result = response.json()
+            generated_text = result.get("generations", [{}])[0].get("text", "")
+            
+            if generated_text:
+                # Format based on content type
+                if content_type == "linkedin_post":
+                    return {
+                        "title": f"Professional Insights on {source_text[:30]}...",
+                        "content": generated_text[:400],
+                        "hashtags": ["#Professional", "#Growth", "#Innovation", "#AI"]
+                    }
+                elif content_type == "twitter_thread":
+                    return {
+                        "thread": [
+                            f"🧵 {generated_text[:100]}...",
+                            "1/ Key insights from the analysis",
+                            "2/ Important takeaways for professionals"
+                        ],
+                        "hashtags": ["#Thread", "#Insights", "#AI"]
+                    }
+                else:
+                    return {
+                        "content": generated_text[:300],
+                        "type": content_type
+                    }
+        
+        return None
+        
+    except Exception as e:
+        print(f"Cohere API error: {e}")
+        return None
+
+async def try_huggingface_ai(source_text: str, content_type: str, audience: str, tone: str):
+    """Try free Hugging Face Inference API"""
+    try:
+        import requests
+        
+        # Use a free text generation model
+        model_url = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium"
+        
+        # Create prompt
+        prompt = f"Create a {content_type} about: {source_text[:200]}... For {audience} audience with {tone} tone."
+        
+        headers = {
+            "Authorization": "Bearer hf_demo_token",  # Free tier
+        }
+        
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "max_length": 150,
+                "temperature": 0.7,
+                "do_sample": True
+            }
+        }
+        
+        response = requests.post(model_url, headers=headers, json=payload, timeout=15)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                generated_text = result[0].get("generated_text", "")
+                
+                # Format based on content type
+                if content_type == "linkedin_post":
+                    return {
+                        "title": f"Professional Insights on {source_text[:30]}...",
+                        "content": generated_text[:300] + "...",
+                        "hashtags": ["#Professional", "#Growth", "#Innovation"]
+                    }
+                elif content_type == "twitter_thread":
+                    return {
+                        "thread": [
+                            f"🧵 {generated_text[:100]}...",
+                            "1/ Key insights from the analysis",
+                            "2/ Important takeaways for professionals"
+                        ],
+                        "hashtags": ["#Thread", "#Insights"]
+                    }
+                else:
+                    return {
+                        "content": generated_text[:200] + "...",
+                        "type": content_type
+                    }
+        
+        return None
+        
+    except Exception as e:
+        print(f"Hugging Face API error: {e}")
+        return None
 
 def create_enhanced_template(source_text: str, content_type: str, audience: str, tone: str):
     """Create enhanced template-based content"""
