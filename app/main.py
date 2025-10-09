@@ -493,21 +493,41 @@ async def try_huggingface_ai(source_text: str, content_type: str, audience: str,
         
         # Generate AI-like responses based on content type
         if content_type == "linkedin_post":
-            # AI-generated LinkedIn post
-            ai_content = f"""🚀 Exciting insights on {main_topic}!
+            # AI-generated LinkedIn post that's more contextual
+            if len(source_text.strip()) < 20:
+                # For short inputs, create more relevant content
+                ai_content = f"""💡 Quick insight about "{source_text.strip()}":
 
-Based on recent analysis, {main_topic} is revolutionizing how professionals approach their work. This transformation brings unprecedented opportunities for growth and innovation.
+{source_text.strip()} - this simple concept actually holds powerful lessons for professionals.
 
-Key findings:
-• Enhanced productivity through {keywords[0] if keywords else 'technology'}
-• Strategic advantages in {keywords[1] if len(keywords) > 1 else 'business operations'}
-• Future-proofing your professional journey
+Here's what I've learned:
+• Every detail matters in business
+• Simple ideas often have the biggest impact  
+• Understanding fundamentals drives success
 
-The data shows that early adopters of these {main_topic} strategies see 40% better outcomes.
+The key is not just knowing about "{source_text.strip()}", but understanding how to apply these insights in your professional life.
 
-What's your experience with {main_topic}? I'd love to hear your thoughts in the comments below!
+What does "{source_text.strip()}" mean to you in your work? Share your thoughts below!
 
-#ProfessionalGrowth #Innovation #AI #BusinessStrategy #LinkedIn"""
+#ProfessionalInsights #BusinessTips #Learning #Growth"""
+            else:
+                # For longer inputs, create more comprehensive content
+                ai_content = f"""🚀 Deep dive into "{main_topic}":
+
+Based on the content about {main_topic}, here are key insights for professionals:
+
+{source_text[:100]}{'...' if len(source_text) > 100 else ''}
+
+Key takeaways:
+• {main_topic.title()} presents unique opportunities
+• Understanding context is crucial for success
+• Professional growth comes from diverse perspectives
+
+The most successful professionals I know always look for insights in unexpected places - like {main_topic}.
+
+What's your perspective on {main_topic}? Let's discuss in the comments!
+
+#ProfessionalGrowth #Insights #BusinessStrategy #Learning"""
             
             return {
                 "title": f"Revolutionary Insights: {main_topic.title()} Transforming Industries",
@@ -516,14 +536,25 @@ What's your experience with {main_topic}? I'd love to hear your thoughts in the 
             }
             
         elif content_type == "twitter_thread":
-            # AI-generated Twitter thread
-            thread_content = [
-                f"🧵 Breaking down the latest trends in {main_topic}:",
-                f"1/ {main_topic.title()} is reshaping industries at an unprecedented pace. The data reveals fascinating insights that every professional should know.",
-                f"2/ Key advantage: Early adopters see 40% better outcomes. The transformation isn't coming - it's here.",
-                f"3/ Strategic takeaway: Focus on {keywords[0] if keywords else 'innovation'} and {keywords[1] if len(keywords) > 1 else 'growth'} for maximum impact.",
-                f"4/ Bottom line: {main_topic.title()} isn't just a trend - it's the future of professional success. 🚀"
-            ]
+            # AI-generated Twitter thread that's more contextual
+            if len(source_text.strip()) < 20:
+                # For short inputs, create more relevant thread
+                thread_content = [
+                    f"🧵 Quick thread about \"{source_text.strip()}\":",
+                    f"1/ \"{source_text.strip()}\" - sounds simple, but there's actually a lot to unpack here for professionals.",
+                    f"2/ The key insight: Sometimes the most profound business lessons come from the simplest concepts.",
+                    f"3/ What I've learned: Understanding \"{source_text.strip()}\" helps us think differently about complex problems.",
+                    f"4/ Bottom line: Never underestimate simple ideas. They often hold the biggest insights. 💡"
+                ]
+            else:
+                # For longer inputs, create more comprehensive thread
+                thread_content = [
+                    f"🧵 Thread on \"{main_topic}\":",
+                    f"1/ {source_text[:80]}{'...' if len(source_text) > 80 else ''}",
+                    f"2/ Key insight: {main_topic.title()} teaches us about {keywords[0] if keywords else 'innovation'} in unexpected ways.",
+                    f"3/ Professional takeaway: The best insights often come from connecting {keywords[0] if keywords else 'simple'} concepts to complex challenges.",
+                    f"4/ Action item: How can you apply lessons from \"{main_topic}\" to your work? 🚀"
+                ]
             
             return {
                 "thread": thread_content,
@@ -531,11 +562,19 @@ What's your experience with {main_topic}? I'd love to hear your thoughts in the 
             }
             
         else:
-            # AI-generated general content
-            return {
-                "content": f"🚀 AI Analysis: {main_topic.title()}\n\nOur advanced analysis reveals that {main_topic} represents a significant opportunity for professional development. The key is understanding how to leverage these insights effectively.\n\nStrategic recommendations:\n• Focus on {keywords[0] if keywords else 'innovation'}\n• Embrace {keywords[1] if len(keywords) > 1 else 'growth'}\n• Stay ahead of trends\n\nThis AI-generated insight is based on current market data and professional best practices.",
-                "type": content_type
-            }
+            # AI-generated general content that's more contextual
+            if len(source_text.strip()) < 20:
+                # For short inputs, create more relevant content
+                return {
+                    "content": f"💡 Insight about \"{source_text.strip()}\":\n\n\"{source_text.strip()}\" - while this might seem simple, it actually contains valuable lessons for professionals.\n\nKey takeaways:\n• Simple concepts often hold deep insights\n• Understanding fundamentals drives success\n• Every detail matters in professional growth\n\nThis analysis shows how even basic concepts like \"{source_text.strip()}\" can provide valuable professional insights.",
+                    "type": content_type
+                }
+            else:
+                # For longer inputs, create more comprehensive content
+                return {
+                    "content": f"🚀 Analysis: {main_topic.title()}\n\nContent: {source_text[:150]}{'...' if len(source_text) > 150 else ''}\n\nKey insights:\n• {main_topic.title()} offers unique perspectives\n• Understanding context is crucial for success\n• Professional growth comes from diverse viewpoints\n\nThis analysis demonstrates how {main_topic} can provide valuable insights for professional development.",
+                    "type": content_type
+                }
         
     except Exception as e:
         print(f"Free AI processing error: {e}")
