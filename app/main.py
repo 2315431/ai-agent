@@ -152,8 +152,12 @@ async def ai_generate_content(request: dict):
             import openai
             from .config import settings
             
-            # Set up OpenAI client
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY or "demo-key")
+            # Set up OpenAI client with proper initialization
+            if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "demo-key":
+                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            else:
+                # Skip OpenAI if no real API key
+                raise ImportError("No OpenAI API key provided")
             
             # Create prompts based on content type
             if content_type == "linkedin_post":
@@ -375,9 +379,14 @@ async def list_content_sources(
 ):
     """List all content sources for the current user"""
     try:
+        user_id = current_user.get("user_id", "demo_user")
+        print(f"Looking for content sources for user: {user_id}")
+        
         sources = db.query(ContentSource).filter(
-            ContentSource.user_id == current_user.get("user_id", "demo_user")
+            ContentSource.user_id == user_id
         ).offset(skip).limit(limit).all()
+        
+        print(f"Found {len(sources)} sources for user {user_id}")
         
         # Convert to dict to avoid Pydantic issues
         return [
