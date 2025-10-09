@@ -11,8 +11,8 @@ import os
 from datetime import datetime, timedelta
 import json
 
-from .database import get_db, engine, Base
-from .models import ContentSource, GeneratedContent, ContentChunk, User, Review
+from .database import get_db, engine
+from .models import Base, ContentSource, GeneratedContent, ContentChunk, User, Review
 from .schemas import (
     ContentSourceCreate, ContentSourceResponse, 
     GeneratedContentCreate, GeneratedContentResponse,
@@ -39,19 +39,12 @@ from .config import settings
 
 # Create database tables (with error handling)
 try:
+    from .models import Base
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully")
 except Exception as e:
     print(f"Warning: Could not create database tables: {e}")
     print("App will continue without database functionality")
-    # Try to create tables manually
-    try:
-        from .database import engine
-        from .models import Base
-        Base.metadata.create_all(bind=engine)
-        print("Database tables created successfully on retry")
-    except Exception as e2:
-        print(f"Failed to create tables on retry: {e2}")
 
 app = FastAPI(
     title="Content Repurposing Agent API",
@@ -63,6 +56,8 @@ app = FastAPI(
 async def startup_event():
     """Create database tables on startup"""
     try:
+        # Import models to ensure they're registered with Base
+        from .models import Base
         Base.metadata.create_all(bind=engine)
         print("✅ Database tables created on startup")
     except Exception as e:
@@ -142,7 +137,10 @@ async def database_status():
 async def initialize_database():
     """Initialize database tables"""
     try:
+        # Import models to ensure they're registered with Base
+        from .models import Base
         Base.metadata.create_all(bind=engine)
+        
         from sqlalchemy import inspect
         inspector = inspect(engine)
         created_tables = inspector.get_table_names()
