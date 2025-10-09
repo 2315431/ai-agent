@@ -414,68 +414,60 @@ async def try_cohere_ai(source_text: str, content_type: str, audience: str, tone
     try:
         import requests
         
-        # Cohere free tier
-        url = "https://api.cohere.ai/v1/generate"
+        # Use a free alternative AI service
+        # Using Hugging Face's free inference API with a different model
+        model_url = "https://api-inference.huggingface.co/models/EleutherAI/gpt-neo-125M"
         
         # Create prompt
-        prompt = f"""Create a professional {content_type} based on this content: "{source_text[:200]}..."
-        
-Target audience: {audience}
-Tone: {tone}
-
-Format as {content_type}:"""
-        
-        headers = {
-            "Authorization": "Bearer demo_token",  # Free tier
-            "Content-Type": "application/json"
-        }
+        prompt = f"Write a professional {content_type} about: {source_text[:100]}"
         
         payload = {
-            "model": "command-light",
-            "prompt": prompt,
-            "max_tokens": 200,
-            "temperature": 0.7,
-            "k": 0,
-            "p": 0.75,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "stop_sequences": [],
-            "return_likelihoods": "NONE"
+            "inputs": prompt,
+            "parameters": {
+                "max_length": 100,
+                "temperature": 0.9,
+                "do_sample": True,
+                "return_full_text": False
+            }
         }
         
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        response = requests.post(model_url, json=payload, timeout=10)
         
         if response.status_code == 200:
             result = response.json()
-            generated_text = result.get("generations", [{}])[0].get("text", "")
-            
-            if generated_text:
-                # Format based on content type
-                if content_type == "linkedin_post":
-                    return {
-                        "title": f"Professional Insights on {source_text[:30]}...",
-                        "content": generated_text[:400],
-                        "hashtags": ["#Professional", "#Growth", "#Innovation", "#AI"]
-                    }
-                elif content_type == "twitter_thread":
-                    return {
-                        "thread": [
-                            f"🧵 {generated_text[:100]}...",
-                            "1/ Key insights from the analysis",
-                            "2/ Important takeaways for professionals"
-                        ],
-                        "hashtags": ["#Thread", "#Insights", "#AI"]
-                    }
-                else:
-                    return {
-                        "content": generated_text[:300],
-                        "type": content_type
-                    }
+            if isinstance(result, list) and len(result) > 0:
+                generated_text = result[0].get("generated_text", "")
+                
+                # Clean up the generated text
+                generated_text = generated_text.strip()
+                if generated_text:
+                    # Format based on content type
+                    if content_type == "linkedin_post":
+                        return {
+                            "title": f"Professional Insights on {source_text[:40]}...",
+                            "content": f"🚀 {generated_text[:200]}\n\nKey insights:\n• Professional development\n• Industry trends\n• Growth opportunities\n\nWhat's your perspective on this topic?\n\n#Professional #Growth #Innovation #AI",
+                            "hashtags": ["#Professional", "#Growth", "#Innovation", "#AI"]
+                        }
+                    elif content_type == "twitter_thread":
+                        return {
+                            "thread": [
+                                f"🧵 {generated_text[:80]}...",
+                                "1/ Key insights from the analysis",
+                                "2/ Important takeaways for professionals",
+                                "3/ Future opportunities ahead 🚀"
+                            ],
+                            "hashtags": ["#Thread", "#Insights", "#Professional"]
+                        }
+                    else:
+                        return {
+                            "content": f"🚀 {generated_text[:150]}",
+                            "type": content_type
+                        }
         
         return None
         
     except Exception as e:
-        print(f"Cohere API error: {e}")
+        print(f"Free AI API error: {e}")
         return None
 
 async def try_huggingface_ai(source_text: str, content_type: str, audience: str, tone: str):
@@ -483,53 +475,54 @@ async def try_huggingface_ai(source_text: str, content_type: str, audience: str,
     try:
         import requests
         
-        # Use a free text generation model
-        model_url = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium"
+        # Use a free text generation model that doesn't require auth
+        model_url = "https://api-inference.huggingface.co/models/gpt2"
         
         # Create prompt
-        prompt = f"Create a {content_type} about: {source_text[:200]}... For {audience} audience with {tone} tone."
-        
-        headers = {
-            "Authorization": "Bearer hf_demo_token",  # Free tier
-        }
+        prompt = f"Create a professional {content_type} about: {source_text[:150]}"
         
         payload = {
             "inputs": prompt,
             "parameters": {
-                "max_length": 150,
-                "temperature": 0.7,
-                "do_sample": True
+                "max_length": 120,
+                "temperature": 0.8,
+                "do_sample": True,
+                "return_full_text": False
             }
         }
         
-        response = requests.post(model_url, headers=headers, json=payload, timeout=15)
+        response = requests.post(model_url, json=payload, timeout=10)
         
         if response.status_code == 200:
             result = response.json()
             if isinstance(result, list) and len(result) > 0:
                 generated_text = result[0].get("generated_text", "")
                 
-                # Format based on content type
-                if content_type == "linkedin_post":
-                    return {
-                        "title": f"Professional Insights on {source_text[:30]}...",
-                        "content": generated_text[:300] + "...",
-                        "hashtags": ["#Professional", "#Growth", "#Innovation"]
-                    }
-                elif content_type == "twitter_thread":
-                    return {
-                        "thread": [
-                            f"🧵 {generated_text[:100]}...",
-                            "1/ Key insights from the analysis",
-                            "2/ Important takeaways for professionals"
-                        ],
-                        "hashtags": ["#Thread", "#Insights"]
-                    }
-                else:
-                    return {
-                        "content": generated_text[:200] + "...",
-                        "type": content_type
-                    }
+                # Clean up the generated text
+                generated_text = generated_text.strip()
+                if generated_text:
+                    # Format based on content type
+                    if content_type == "linkedin_post":
+                        return {
+                            "title": f"Professional Insights on {source_text[:40]}...",
+                            "content": f"🚀 {generated_text[:250]}\n\nKey insights:\n• Professional growth\n• Industry transformation\n• Future opportunities\n\nWhat's your experience with this topic?\n\n#Professional #Growth #Innovation #AI",
+                            "hashtags": ["#Professional", "#Growth", "#Innovation", "#AI"]
+                        }
+                    elif content_type == "twitter_thread":
+                        return {
+                            "thread": [
+                                f"🧵 {generated_text[:80]}...",
+                                "1/ Key insights from the analysis",
+                                "2/ Important takeaways for professionals",
+                                "3/ Future opportunities ahead 🚀"
+                            ],
+                            "hashtags": ["#Thread", "#Insights", "#Professional"]
+                        }
+                    else:
+                        return {
+                            "content": f"🚀 {generated_text[:200]}",
+                            "type": content_type
+                        }
         
         return None
         
