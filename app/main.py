@@ -122,14 +122,24 @@ async def ai_status():
         
         if has_api_key:
             try:
-                # Test OpenAI connection
-                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY, timeout=10.0)
-                # Don't make actual API call, just test client creation
+                # Test OpenAI connection with multiple methods
+                try:
+                    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                    method = "new_client"
+                except Exception:
+                    try:
+                        openai.api_key = settings.OPENAI_API_KEY
+                        client = None
+                        method = "legacy_api"
+                    except Exception:
+                        raise Exception("Both client methods failed")
+                
                 return {
                     "status": "ai_ready",
-                    "message": "AI is properly configured and ready",
+                    "message": f"AI is properly configured and ready (using {method})",
                     "has_api_key": True,
-                    "model": settings.LLM_MODEL
+                    "model": settings.LLM_MODEL,
+                    "method": method
                 }
             except Exception as e:
                 return {
@@ -254,15 +264,25 @@ async def ai_generate_content(request: dict):
             import openai
             from .config import settings
             
-            # Set up OpenAI client with proper initialization
-            if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "demo-key":
-                client = openai.OpenAI(
-                    api_key=settings.OPENAI_API_KEY,
-                    timeout=30.0
-                )
-            else:
-                # Skip OpenAI if no real API key
+            # Check if we have a valid API key
+            if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "demo-key":
                 raise ImportError("No OpenAI API key provided")
+            
+            # Try different client initialization methods
+            try:
+                # Method 1: Simple initialization
+                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            except Exception as e1:
+                try:
+                    # Method 2: With timeout only
+                    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)
+                except Exception as e2:
+                    try:
+                        # Method 3: Legacy method
+                        openai.api_key = settings.OPENAI_API_KEY
+                        client = None  # Use legacy API
+                    except Exception as e3:
+                        raise Exception(f"All OpenAI initialization methods failed: {e1}, {e2}, {e3}")
             
             # Create prompts based on content type
             if content_type == "linkedin_post":
@@ -297,7 +317,8 @@ async def ai_generate_content(request: dict):
                 user_prompt = f"Create {content_type} content from: {source_text}"
             
             # Make API call to OpenAI
-            if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "demo-key":
+            if client:
+                # New client method
                 response = client.chat.completions.create(
                     model=settings.LLM_MODEL,
                     messages=[
@@ -307,24 +328,32 @@ async def ai_generate_content(request: dict):
                     temperature=settings.LLM_TEMPERATURE,
                     max_tokens=settings.LLM_MAX_TOKENS
                 )
-                
                 ai_content = response.choices[0].message.content
-                
-                # Try to parse JSON response
-                try:
-                    import json
-                    generated = json.loads(ai_content)
-                except:
-                    # If not JSON, wrap in structure
-                    generated = {
-                        "content": ai_content,
-                        "type": content_type,
-                        "ai_generated": True
-                    }
-                
             else:
-                # Fallback to enhanced template if no API key
-                generated = create_enhanced_template(source_text, content_type, target_audience, tone)
+                # Legacy API method
+                response = openai.ChatCompletion.create(
+                    model=settings.LLM_MODEL,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=settings.LLM_TEMPERATURE,
+                    max_tokens=settings.LLM_MAX_TOKENS
+                )
+                ai_content = response.choices[0].message.content
+            
+            # Try to parse JSON response
+            try:
+                import json
+                generated = json.loads(ai_content)
+                generated["ai_powered"] = True
+            except:
+                # If not JSON, wrap in structure
+                generated = {
+                    "content": ai_content,
+                    "type": content_type,
+                    "ai_powered": True
+                }
                 
         except ImportError:
             # Fallback if OpenAI not available
