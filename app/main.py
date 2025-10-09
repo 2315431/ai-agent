@@ -187,9 +187,9 @@ async def ai_generate_content(request: dict):
                 """
                 user_prompt = f"Create {content_type} content from: {source_text}"
             
-                # Make API call to OpenAI
-                if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "demo-key":
-                    response = client.chat.completions.create(
+            # Make API call to OpenAI
+            if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "demo-key":
+                response = client.chat.completions.create(
                     model=settings.LLM_MODEL,
                     messages=[
                         {"role": "system", "content": system_prompt},
