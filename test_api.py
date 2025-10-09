@@ -174,6 +174,21 @@ class APITester:
             self.log_result("Debug All Sources", False, None, str(e))
             return False
 
+    def test_database_init(self):
+        """Test database initialization"""
+        try:
+            response = self.session.post(f"{self.base_url}/admin/init-db")
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Database Init", True, data)
+                return True
+            else:
+                self.log_result("Database Init", False, None, f"Status: {response.status_code}")
+                return False
+        except Exception as e:
+            self.log_result("Database Init", False, None, str(e))
+            return False
+
     def test_file_upload(self):
         """Test file upload"""
         try:
@@ -238,6 +253,9 @@ class APITester:
         self.test_demo_generate()
         self.test_ai_generate()
         self.test_different_content_types()
+        
+        # Database initialization
+        self.test_database_init()
         
         # Content management tests
         self.test_debug_all_sources()

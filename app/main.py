@@ -44,12 +44,29 @@ try:
 except Exception as e:
     print(f"Warning: Could not create database tables: {e}")
     print("App will continue without database functionality")
+    # Try to create tables manually
+    try:
+        from .database import engine
+        from .models import Base
+        Base.metadata.create_all(bind=engine)
+        print("Database tables created successfully on retry")
+    except Exception as e2:
+        print(f"Failed to create tables on retry: {e2}")
 
 app = FastAPI(
     title="Content Repurposing Agent API",
     description="Self-hosted content repurposing system using open-source LLMs",
     version="1.0.0"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    """Create database tables on startup"""
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database tables created on startup")
+    except Exception as e:
+        print(f"❌ Failed to create database tables on startup: {e}")
 
 # CORS middleware
 app.add_middleware(
@@ -97,6 +114,23 @@ async def test_endpoint():
             "Review system"
         ]
     }
+
+# Database initialization endpoint
+@app.post("/admin/init-db")
+async def initialize_database():
+    """Initialize database tables"""
+    try:
+        Base.metadata.create_all(bind=engine)
+        return {
+            "status": "success",
+            "message": "Database tables created successfully",
+            "tables": list(Base.metadata.tables.keys())
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to create database tables: {str(e)}"
+        }
 
 # Demo content generation (no auth, no DB required)
 @app.post("/demo/generate")
