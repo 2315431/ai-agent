@@ -174,6 +174,21 @@ class APITester:
             self.log_result("Debug All Sources", False, None, str(e))
             return False
 
+    def test_database_status(self):
+        """Test database status check"""
+        try:
+            response = self.session.get(f"{self.base_url}/admin/db-status")
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Database Status", True, data)
+                return data.get("needs_init", False)
+            else:
+                self.log_result("Database Status", False, None, f"Status: {response.status_code}")
+                return True  # Assume we need init if status check fails
+        except Exception as e:
+            self.log_result("Database Status", False, None, str(e))
+            return True  # Assume we need init if status check fails
+
     def test_database_init(self):
         """Test database initialization"""
         try:
@@ -254,8 +269,10 @@ class APITester:
         self.test_ai_generate()
         self.test_different_content_types()
         
-        # Database initialization
-        self.test_database_init()
+        # Database status and initialization
+        needs_init = self.test_database_status()
+        if needs_init:
+            self.test_database_init()
         
         # Content management tests
         self.test_debug_all_sources()

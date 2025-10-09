@@ -3,10 +3,16 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Database URL from environment variable - force SQLite for cloud deployment
+# Database URL from environment variable - use persistent storage
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./content_agent.db")
 if "postgres" in DATABASE_URL or "postgresql" in DATABASE_URL:
     DATABASE_URL = "sqlite:///./content_agent.db"
+
+# Use persistent storage location for cloud deployment
+if DATABASE_URL.startswith("sqlite"):
+    # Use /tmp directory which persists longer on Render
+    DATABASE_URL = "sqlite:////tmp/content_agent.db"
+    print(f"Using persistent database: {DATABASE_URL}")
 
 # Create engine
 if DATABASE_URL.startswith("sqlite"):

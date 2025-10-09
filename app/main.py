@@ -115,16 +115,43 @@ async def test_endpoint():
         ]
     }
 
+# Database status endpoint
+@app.get("/admin/db-status")
+async def database_status():
+    """Check database status"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        
+        return {
+            "status": "success",
+            "database_url": str(engine.url),
+            "existing_tables": existing_tables,
+            "needs_init": len(existing_tables) == 0,
+            "total_tables": len(Base.metadata.tables)
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to check database status: {str(e)}"
+        }
+
 # Database initialization endpoint
 @app.post("/admin/init-db")
 async def initialize_database():
     """Initialize database tables"""
     try:
         Base.metadata.create_all(bind=engine)
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        created_tables = inspector.get_table_names()
+        
         return {
             "status": "success",
             "message": "Database tables created successfully",
-            "tables": list(Base.metadata.tables.keys())
+            "created_tables": created_tables,
+            "total_tables": len(created_tables)
         }
     except Exception as e:
         return {
