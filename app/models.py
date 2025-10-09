@@ -5,19 +5,15 @@ import uuid
 from datetime import datetime
 import os
 
-# Use String for UUID in SQLite, UUID for PostgreSQL
-if os.getenv("DATABASE_URL", "").startswith("sqlite"):
-    UUID_TYPE = String(36)  # SQLite
-else:
-    from sqlalchemy.dialects.postgresql import UUID
-    UUID_TYPE = UUID(as_uuid=True)  # PostgreSQL
+# Use String for UUID in all cases to avoid SQLite issues
+UUID_TYPE = String(36)
 
 Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=lambda: str(uuid.uuid4()))
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
@@ -31,7 +27,7 @@ class User(Base):
 class ContentSource(Base):
     __tablename__ = "content_sources"
     
-    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=lambda: str(uuid.uuid4()))
     title = Column(String(255), nullable=False)
     description = Column(Text)
     source_type = Column(String(50), nullable=False)  # text, audio, video, pdf
@@ -52,7 +48,7 @@ class ContentSource(Base):
 class ContentChunk(Base):
     __tablename__ = "content_chunks"
     
-    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=lambda: str(uuid.uuid4()))
     source_id = Column(UUID_TYPE, ForeignKey("content_sources.id"), nullable=False)
     chunk_text = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)
@@ -71,7 +67,7 @@ class ContentChunk(Base):
 class GeneratedContent(Base):
     __tablename__ = "generated_content"
     
-    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=lambda: str(uuid.uuid4()))
     source_id = Column(UUID_TYPE, ForeignKey("content_sources.id"), nullable=False)
     job_id = Column(String(100), unique=True)
     content_type = Column(String(50), nullable=False)  # linkedin, twitter, instagram, etc.
@@ -92,7 +88,7 @@ class GeneratedContent(Base):
 class Review(Base):
     __tablename__ = "reviews"
     
-    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=lambda: str(uuid.uuid4()))
     content_id = Column(UUID_TYPE, ForeignKey("generated_content.id"), nullable=False)
     user_id = Column(UUID_TYPE, ForeignKey("users.id"), nullable=False)
     status = Column(String(50), nullable=False)  # approved, rejected, needs_revision
@@ -107,7 +103,7 @@ class Review(Base):
 class ContentSchedule(Base):
     __tablename__ = "content_schedules"
     
-    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=lambda: str(uuid.uuid4()))
     content_id = Column(UUID_TYPE, ForeignKey("generated_content.id"), nullable=False)
     platform = Column(String(50), nullable=False)  # linkedin, twitter, instagram, etc.
     scheduled_time = Column(DateTime, nullable=False)
@@ -123,7 +119,7 @@ class ContentSchedule(Base):
 class ContentMetrics(Base):
     __tablename__ = "content_metrics"
     
-    id = Column(UUID_TYPE, primary_key=True, default=uuid.uuid4)
+    id = Column(UUID_TYPE, primary_key=True, default=lambda: str(uuid.uuid4()))
     content_id = Column(UUID_TYPE, ForeignKey("generated_content.id"), nullable=False)
     platform = Column(String(50), nullable=False)
     metric_type = Column(String(50), nullable=False)  # views, likes, shares, clicks
