@@ -104,6 +104,21 @@ class APITester:
             self.log_result("Authentication", False, None, str(e))
             return False
 
+    def test_ai_status(self):
+        """Test AI status"""
+        try:
+            response = self.session.get(f"{self.base_url}/ai/status")
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("AI Status", True, data)
+                return data.get("status") == "ai_ready"
+            else:
+                self.log_result("AI Status", False, None, f"Status: {response.status_code}")
+                return False
+        except Exception as e:
+            self.log_result("AI Status", False, None, str(e))
+            return False
+
     def test_demo_generate(self):
         """Test demo content generation"""
         try:
@@ -263,6 +278,9 @@ class APITester:
         
         # Authentication
         self.test_authentication()
+        
+        # AI Status check
+        ai_working = self.test_ai_status()
         
         # Content generation tests
         self.test_demo_generate()

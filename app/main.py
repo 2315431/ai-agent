@@ -110,6 +110,49 @@ async def test_endpoint():
         ]
     }
 
+# AI Status Check endpoint
+@app.get("/ai/status")
+async def ai_status():
+    """Check if AI is properly configured"""
+    try:
+        import openai
+        from .config import settings
+        
+        has_api_key = bool(settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "demo-key")
+        
+        if has_api_key:
+            try:
+                # Test OpenAI connection
+                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY, timeout=10.0)
+                # Don't make actual API call, just test client creation
+                return {
+                    "status": "ai_ready",
+                    "message": "AI is properly configured and ready",
+                    "has_api_key": True,
+                    "model": settings.LLM_MODEL
+                }
+            except Exception as e:
+                return {
+                    "status": "ai_error", 
+                    "message": f"AI configured but connection failed: {str(e)}",
+                    "has_api_key": True,
+                    "error": str(e)
+                }
+        else:
+            return {
+                "status": "template_mode",
+                "message": "Running in template mode - no OpenAI API key provided",
+                "has_api_key": False,
+                "fallback": "Enhanced templates"
+            }
+    except ImportError:
+        return {
+            "status": "ai_unavailable",
+            "message": "OpenAI library not available",
+            "has_api_key": False,
+            "fallback": "Enhanced templates"
+        }
+
 # Database status endpoint
 @app.get("/admin/db-status")
 async def database_status():
@@ -213,7 +256,10 @@ async def ai_generate_content(request: dict):
             
             # Set up OpenAI client with proper initialization
             if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "demo-key":
-                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                client = openai.OpenAI(
+                    api_key=settings.OPENAI_API_KEY,
+                    timeout=30.0
+                )
             else:
                 # Skip OpenAI if no real API key
                 raise ImportError("No OpenAI API key provided")
